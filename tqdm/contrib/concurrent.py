@@ -36,6 +36,7 @@ def _executor_map(PoolExecutor, fn, *iterables, **tqdm_kwargs):
     max_workers  : [default: min(32, cpu_count() + 4)].
     chunksize  : [default: 1].
     lock_name  : [default: "":str].
+    mp_context  : [str].
     """
     kwargs = tqdm_kwargs.copy()
     if "total" not in kwargs:
@@ -44,10 +45,14 @@ def _executor_map(PoolExecutor, fn, *iterables, **tqdm_kwargs):
     max_workers = kwargs.pop("max_workers", min(32, cpu_count() + 4))
     chunksize = kwargs.pop("chunksize", 1)
     lock_name = kwargs.pop("lock_name", "")
+    pool_kwargs = {}
+    if 'mp_context' in kwargs:
+        pool_kwargs['mp_context'] = kwargs.pop('mp_context')
+
     with ensure_lock(tqdm_class, lock_name=lock_name) as lk:
         # share lock in case workers are already using `tqdm`
         with PoolExecutor(max_workers=max_workers, initializer=tqdm_class.set_lock,
-                          initargs=(lk,)) as ex:
+                          initargs=(lk,), **pool_kwargs) as ex:
             with tqdm_class(**kwargs) as pbar:
                 orisubmit = ex.submit
 
@@ -95,6 +100,8 @@ def process_map(fn, *iterables, **tqdm_kwargs):
         `concurrent.futures.ProcessPoolExecutor.map`. [default: 1].
     lock_name  : str, optional
         Member of `tqdm_class.get_lock()` to use [default: mp_lock].
+    mp_context  : multiprocessing.BaseContext, optional
+        Multiprocessing context to use, e.g. `multiprocessing.get_context('fork')`.
     """
     from concurrent.futures import ProcessPoolExecutor
     if iterables and "chunksize" not in tqdm_kwargs:
