@@ -148,3 +148,38 @@ async def test_gather_exceptions(capsys):
     assert isinstance(res[1], ValueError)
     assert res[0] == 0
     assert res[2] == 4
+
+
+class AsyncIterable:
+    """An async iterable that only has __aiter__ (no __anext__)."""
+    def __init__(self, items):
+        self._items = items
+
+    def __aiter__(self):
+        return AsyncIterableIterator(self._items)
+
+
+class AsyncIterableIterator:
+    def __init__(self, items):
+        self._items = iter(items)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._items)
+        except StopIteration:
+            raise StopAsyncIteration
+
+
+@mark.asyncio
+async def test_async_iterable():
+    """Test asyncio with async iterable (only __aiter__, no __anext__)"""
+    with closing(StringIO()) as our_file:
+        result = []
+        async for i in tqdm(AsyncIterable(range(9)), total=9,
+                            desc="aiterable", file=our_file):
+            result.append(i)
+        assert result == list(range(9))
+        assert '9/9' in our_file.getvalue()
