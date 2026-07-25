@@ -46,8 +46,9 @@ def _executor_map(PoolExecutor, fn, *iterables, **tqdm_kwargs):
     chunksize = kwargs.pop("chunksize", 1)
     lock_name = kwargs.pop("lock_name", "")
     pool_kwargs = {}
-    if 'mp_context' in kwargs:
-        pool_kwargs['mp_context'] = kwargs.pop('mp_context')
+    for k in ('thread_name_prefix', 'max_tasks_per_child', 'mp_context'):
+        if k in kwargs:
+            pool_kwargs[k] = kwargs.pop(k)
 
     with ensure_lock(tqdm_class, lock_name=lock_name) as lk:
         # share lock in case workers are already using `tqdm`
